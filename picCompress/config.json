@@ -1,0 +1,14 @@
+{
+  "excludeDirectory": [
+  ],
+  "includePath": [
+    "src/main/res",
+    "src/main/assets"
+  ],
+  "whiteList": [
+    {
+      "includePath": "",
+      "fileName": ""
+    }
+  ]
+}
