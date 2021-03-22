@@ -92,7 +92,7 @@ Future<void> compressPng(String srcName) async {
     '-- "$srcName"',
   ];
   final shell = "./pngquant ${args.join(' ')}";
-  log(shell);
+  print(shell);
 
   fileSh.writeAsStringSync(shell);
   final result = await Process.start('bash', [fileSh.path]);
