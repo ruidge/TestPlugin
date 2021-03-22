@@ -1,14 +1,16 @@
 {
-  "excludeDirectory": [
-  ],
   "includePath": [
     "src/main/res",
     "src/main/assets"
   ],
   "whiteList": [
     {
-      "includePath": "",
-      "fileName": ""
+      "path": "",
+      "fileName": "ic_launcher.png"
+    },
+    {
+      "path": "",
+      "fileName": "ic_launcher_round.png"
     }
   ]
 }

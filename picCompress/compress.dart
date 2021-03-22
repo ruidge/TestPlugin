@@ -1,22 +1,21 @@
 import 'dart:convert';
 import 'dart:io';
 
-final SRC_MAIN_RES = 'src/main/res';
-final SRC_MAIN_ASSETS = 'src/main/assets';
+import 'config.dart';
 
 final fileSh = File("temp.sh");
 final List<File> pngFiles = [];
-final List<File> jpgFiles = [];
-final List<File> webpFiles = [];
 
 int compressedPngNum = 0;
 
 main() async {
   Directory dir = Directory('../');
-  await listPic(dir);
+
+  Config config = await readConfig();
+  print('config : ${json.encode(config)}');
+
+  await listPic(dir, config);
   print('total png: ${pngFiles.length}');
-  print('total jpg: ${jpgFiles.length}');
-  print('total webp: ${webpFiles.length}');
 
   compressedPngNum = 0;
   for (final file in pngFiles) {
@@ -30,20 +29,53 @@ main() async {
   }
 }
 
-Future<void> listPic(Directory dirRoot) async {
+Future<void> listPic(Directory dirRoot, Config config) async {
+  List<String> includePath = config.includePath;
+  List<WhiteListItem> whiteList = config.whiteList;
+
   for (final file in dirRoot.listSync(recursive: true)) {
     String path = file.path;
-    if (path.contains(SRC_MAIN_RES) || path.contains(SRC_MAIN_ASSETS)) {
-      if (path.endsWith(".png") && !path.endsWith(".9.png")) {
-        pngFiles.add(file as File);
-        log(path);
-      } else if (path.endsWith(".jpg")) {
-        jpgFiles.add(file as File);
-        log(path);
-      } else if (path.endsWith(".webp")) {
-        webpFiles.add(file as File);
-        log(path);
+    bool containPath = false;
+    for (final p in includePath) {
+      if (path.contains(p)) {
+        containPath = true;
       }
+    }
+    if (!containPath) {
+      continue;
+    }
+
+    bool inWhite = false;
+    for (final white in whiteList) {
+      String wPath = white.path;
+      String wName = white.fileName;
+      if (wPath.isEmpty) {
+        //path为'', 只匹配fileName
+        if (wName.isNotEmpty && path.endsWith(wName)) {
+          inWhite = true;
+        }
+      } else {
+        //包含path
+        if (path.contains(wPath)) {
+          //fileName为'',包含path的都忽略
+          if (wName.isEmpty) {
+            inWhite = true;
+          } else {
+            //path和fileName都匹配
+            if (path.endsWith(wName)) {
+              inWhite = true;
+            }
+          }
+        }
+      }
+    }
+    if (inWhite) {
+      print('int whitelist continue : $path');
+      continue;
+    }
+    if (path.endsWith(".png") && !path.endsWith(".9.png")) {
+      pngFiles.add(file as File);
+      log(path);
     }
   }
 }
@@ -86,6 +118,18 @@ Future<void> compressPng(String srcName) async {
     compressedPngNum++;
     log('success');
   }
+}
+
+Future<Config> readConfig() async {
+  File file = new File('config.json');
+  String content = await file.readAsString();
+  Config config = Config([], []);
+  try {
+    config = Config.fromJson(json.decode(content));
+  } catch (e) {
+    print(e);
+  }
+  return config;
 }
 
 bool showLog = false;
