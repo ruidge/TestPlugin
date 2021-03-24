@@ -9,22 +9,26 @@ final List<File> pngFiles = [];
 int compressedPngNum = 0;
 
 main() async {
-  Config config = await readConfig();
+  Config config = await _readConfig();
   print('config : ${json.encode(config)}');
 
   Directory dir = Directory(config.rootPath);
 
-  await listPic(dir, config);
+  await _listPic(dir, config);
   print('total png: ${pngFiles.length}');
+
+  // var configFileLastModified = await _getConfigFile().lastModified();
+  // int tsConfigFile = configFileLastModified.millisecondsSinceEpoch;
+  int tsConfig = config.timestamp;
 
   compressedPngNum = 0;
   for (final file in pngFiles) {
     var lastModified = await file.lastModified();
     int oldTs = lastModified.millisecondsSinceEpoch;
-    if (oldTs > config.timestamp) {
+    if (oldTs > tsConfig) {
       print('${file.path}, 修改时间晚于上次压缩执行时间, 进行压缩...');
       //不await 会同时触发
-      await compressPng(file.path);
+      await _compressPng(file.path);
     } else {
       print('${file.path}, 修改时间早于上次压缩执行时间,认为已经压过了,不压缩');
     }
@@ -32,14 +36,14 @@ main() async {
   print('total png: ${pngFiles.length}, compressed png: $compressedPngNum');
 
   config.timestamp = DateTime.now().millisecondsSinceEpoch;
-  writeConfig(config);
+  _writeConfig(config);
 
   if (fileSh.existsSync()) {
     fileSh.delete();
   }
 }
 
-Future<void> listPic(Directory dirRoot, Config config) async {
+Future<void> _listPic(Directory dirRoot, Config config) async {
   List<String> includePath = config.includePath;
   List<WhiteListItem> whiteList = config.whiteList;
 
@@ -91,7 +95,7 @@ Future<void> listPic(Directory dirRoot, Config config) async {
 }
 
 ///压缩图片逻辑
-Future<void> compressPng(String srcName) async {
+Future<void> _compressPng(String srcName) async {
   List<String> args = [
     '--skip-if-larger',
     '--speed 1',
@@ -130,8 +134,8 @@ Future<void> compressPng(String srcName) async {
   }
 }
 
-Future<Config> readConfig() async {
-  File file = new File('config.json');
+Future<Config> _readConfig() async {
+  File file = _getConfigFile();
   String content = await file.readAsString();
   Config config = Config([], []);
   try {
@@ -142,7 +146,11 @@ Future<Config> readConfig() async {
   return config;
 }
 
-Future<void> writeConfig(Config config) async {
+File _getConfigFile() {
+  return new File('config.json');
+}
+
+Future<void> _writeConfig(Config config) async {
   File file = new File('config.json');
   await file.writeAsString(json.encode(config));
 }
