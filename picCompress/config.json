@@ -1,4 +1,5 @@
 {
+  "rootPath": "../",
   "includePath": [
     "src/main/res",
     "src/main/assets"

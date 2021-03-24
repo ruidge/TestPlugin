@@ -1,10 +1,12 @@
 class Config {
+  String rootPath = '';
   List<String> includePath = [];
   List<WhiteListItem> whiteList = [];
 
   Config(this.includePath, this.whiteList);
 
   Config.fromJson(Map<String, dynamic> json) {
+    rootPath = json['rootPath'] ?? "";
     includePath = json['includePath'].cast<String>();
     if (json['whiteList'] != null) {
       json['whiteList'].forEach((v) {
@@ -15,6 +17,7 @@ class Config {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['rootPath'] = this.rootPath;
     data['includePath'] = this.includePath;
     data['whiteList'] = this.whiteList.map((v) => v.toJson()).toList();
     return data;

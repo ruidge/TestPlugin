@@ -9,10 +9,10 @@ final List<File> pngFiles = [];
 int compressedPngNum = 0;
 
 main() async {
-  Directory dir = Directory('../');
-
   Config config = await readConfig();
   print('config : ${json.encode(config)}');
+
+  Directory dir = Directory(config.rootPath);
 
   await listPic(dir, config);
   print('total png: ${pngFiles.length}');
