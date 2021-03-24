@@ -1,5 +1,6 @@
 class Config {
   String rootPath = '';
+  int timestamp = 0;
   List<String> includePath = [];
   List<WhiteListItem> whiteList = [];
 
@@ -7,6 +8,7 @@ class Config {
 
   Config.fromJson(Map<String, dynamic> json) {
     rootPath = json['rootPath'] ?? "";
+    timestamp = json['timestamp'] ?? 0;
     includePath = json['includePath'].cast<String>();
     if (json['whiteList'] != null) {
       json['whiteList'].forEach((v) {
@@ -18,6 +20,7 @@ class Config {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = new Map<String, dynamic>();
     data['rootPath'] = this.rootPath;
+    data['timestamp'] = this.timestamp;
     data['includePath'] = this.includePath;
     data['whiteList'] = this.whiteList.map((v) => v.toJson()).toList();
     return data;

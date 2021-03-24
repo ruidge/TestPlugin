@@ -19,10 +19,20 @@ main() async {
 
   compressedPngNum = 0;
   for (final file in pngFiles) {
-    //不await 会同时触发
-    await compressPng(file.path);
+    var lastModified = await file.lastModified();
+    int oldTs = lastModified.millisecondsSinceEpoch;
+    if (oldTs > config.timestamp) {
+      print('${file.path}, 修改时间晚于上次压缩执行时间, 进行压缩...');
+      //不await 会同时触发
+      await compressPng(file.path);
+    } else {
+      print('${file.path}, 修改时间早于上次压缩执行时间,认为已经压过了,不压缩');
+    }
   }
   print('total png: ${pngFiles.length}, compressed png: $compressedPngNum');
+
+  config.timestamp = DateTime.now().millisecondsSinceEpoch;
+  writeConfig(config);
 
   if (fileSh.existsSync()) {
     fileSh.delete();
@@ -130,6 +140,11 @@ Future<Config> readConfig() async {
     print(e);
   }
   return config;
+}
+
+Future<void> writeConfig(Config config) async {
+  File file = new File('config.json');
+  await file.writeAsString(json.encode(config));
 }
 
 bool showLog = false;

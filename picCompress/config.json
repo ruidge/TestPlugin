@@ -1,17 +1,1 @@
-{
-  "rootPath": "../",
-  "includePath": [
-    "src/main/res",
-    "src/main/assets"
-  ],
-  "whiteList": [
-    {
-      "path": "",
-      "fileName": "ic_launcher.png"
-    },
-    {
-      "path": "",
-      "fileName": "ic_launcher_round.png"
-    }
-  ]
-}
+{"rootPath":"../","timestamp":1616554205285,"includePath":["src/main/res","src/main/assets"],"whiteList":[{"path":"","fileName":"ic_launcher.png"},{"path":"","fileName":"ic_launcher_round.png"}]}
