@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'config.dart';
 
+final PALETTE_ALPHA = 'PaletteAlpha';
+
 final fileSh = File("temp.sh");
 final List<File> pngFiles = [];
 
@@ -10,34 +12,21 @@ int compressedPngNum = 0;
 
 main() async {
   Config config = await _readConfig();
-  print('config : ${json.encode(config)}');
+  // print('config : ${json.encode(config)}');
 
   Directory dir = Directory(config.rootPath);
 
   await _listPic(dir, config);
   print('total png: ${pngFiles.length}');
 
-  // var configFileLastModified = await _getConfigFile().lastModified();
-  // int tsConfigFile = configFileLastModified.millisecondsSinceEpoch;
-  int tsConfig = config.timestamp;
-
   compressedPngNum = 0;
   for (final file in pngFiles) {
-    var lastModified = await file.lastModified();
-    int oldTs = lastModified.millisecondsSinceEpoch;
-    if (oldTs > tsConfig) {
-      print('${file.path}, 修改时间晚于上次压缩执行时间, 进行压缩...');
-      //不await 会同时触发
+    bool isPaletteAlpha = await _isPaletteAlphaType(file.path);
+    if (!isPaletteAlpha) {
       await _compressPng(file.path);
-    } else {
-      print('${file.path}, 修改时间早于上次压缩执行时间,认为已经压过了,不压缩');
     }
   }
   print('total png: ${pngFiles.length}, compressed png: $compressedPngNum');
-
-  config.timestamp = DateTime.now().millisecondsSinceEpoch;
-  _writeConfig(config);
-
   if (fileSh.existsSync()) {
     fileSh.delete();
   }
@@ -89,7 +78,7 @@ Future<void> _listPic(Directory dirRoot, Config config) async {
     }
     if (path.endsWith(".png") && !path.endsWith(".9.png")) {
       pngFiles.add(file as File);
-      log(path);
+      // print(path);
     }
   }
 }
@@ -120,22 +109,50 @@ Future<void> _compressPng(String srcName) async {
     // Additionally, file size gain must be greater than the amount of quality lost.
     // If quality drops by 50%, it will expect 50% file size reduction to consider it worthwhile.
     if (exitCode == 99) {
-      log('exitCode: $exitCode, result is larger than original, ignore result');
+      print(
+          'exitCode: $exitCode, result is larger than original, ignore result');
     } else if (exitCode == 98) {
-      log('exitCode: $exitCode, file size gain must be greater than the amount of quality lost, ignore result');
+      print(
+          'exitCode: $exitCode, file size gain must be greater than the amount of quality lost, ignore result');
     } else {
       final ssOut = await utf8.decodeStream(result.stdout);
       final ssErr = await utf8.decodeStream(result.stderr);
-      log('exitCode: $exitCode, stdout: $ssOut, stderr: $ssErr');
+      print('exitCode: $exitCode, stdout: $ssOut, stderr: $ssErr');
     }
   } else {
     compressedPngNum++;
-    log('success');
+    print('success');
   }
 }
 
+///是否PaletteAlpha类型
+Future<bool> _isPaletteAlphaType(String srcName) async {
+  bool isPaletteAlpha = false;
+  final shell = 'identify -verbose $srcName | grep "Type"';
+  fileSh.writeAsStringSync(shell);
+  final result = await Process.start('bash', [fileSh.path]);
+  //exitCode一直是0
+  final ssOut = await utf8.decodeStream(result.stdout);
+  List<String> outL = ssOut.trim().split(':');
+  if (outL.length > 0) {
+    var type = outL[outL.length - 1].trim();
+    print(type);
+    if (type.toUpperCase().contains(PALETTE_ALPHA.toUpperCase())) {
+      isPaletteAlpha = true;
+    }
+  }
+
+  final ssErr = await utf8.decodeStream(result.stderr);
+  List<String> errL = ssErr.trim().split(':');
+  if (errL.length > 0) {
+    print(errL[errL.length - 1].trim());
+  }
+
+  return isPaletteAlpha;
+}
+
 Future<Config> _readConfig() async {
-  File file = _getConfigFile();
+  File file = new File('config.json');
   String content = await file.readAsString();
   Config config = Config([], []);
   try {
@@ -144,21 +161,4 @@ Future<Config> _readConfig() async {
     print(e);
   }
   return config;
-}
-
-File _getConfigFile() {
-  return new File('config.json');
-}
-
-Future<void> _writeConfig(Config config) async {
-  File file = new File('config.json');
-  await file.writeAsString(json.encode(config));
-}
-
-bool showLog = false;
-
-log(String log) {
-  if (showLog) {
-    print(log);
-  }
 }
