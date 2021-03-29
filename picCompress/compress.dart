@@ -4,6 +4,7 @@ import 'dart:io';
 import 'config.dart';
 
 final PALETTE_ALPHA = 'PaletteAlpha';
+final MAX_SIZE_BYTE = 10 * 1024;
 
 final fileSh = File("temp.sh");
 final List<File> pngFiles = [];
@@ -22,7 +23,9 @@ main() async {
   compressedPngNum = 0;
   for (final file in pngFiles) {
     bool isPaletteAlpha = await _isPaletteAlphaType(file.path);
-    if (!isPaletteAlpha) {
+    bool isBeyondMaxSize = await _isBeyondMaxSize(file.path);
+
+    if (!isPaletteAlpha || isBeyondMaxSize) {
       await _compressPng(file.path);
     }
   }
@@ -134,9 +137,9 @@ Future<bool> _isPaletteAlphaType(String srcName) async {
   //exitCode一直是0
   final ssOut = await utf8.decodeStream(result.stdout);
   List<String> outL = ssOut.trim().split(':');
-  if (outL.length > 0) {
+  if (outL.length > 1) {
     var type = outL[outL.length - 1].trim();
-    print(type);
+    print('$type -- $srcName');
     if (type.toUpperCase().contains(PALETTE_ALPHA.toUpperCase())) {
       isPaletteAlpha = true;
     }
@@ -144,11 +147,17 @@ Future<bool> _isPaletteAlphaType(String srcName) async {
 
   final ssErr = await utf8.decodeStream(result.stderr);
   List<String> errL = ssErr.trim().split(':');
-  if (errL.length > 0) {
-    print(errL[errL.length - 1].trim());
+  if (errL.length > 1) {
+    print('err ------- ' + errL[errL.length - 1].trim());
   }
 
   return isPaletteAlpha;
+}
+
+Future<bool> _isBeyondMaxSize(String srcName) async {
+  File file = new File(srcName);
+  int length = await file.length();
+  return length > MAX_SIZE_BYTE;
 }
 
 Future<Config> _readConfig() async {
