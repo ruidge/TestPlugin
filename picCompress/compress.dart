@@ -12,7 +12,9 @@ final fileTempSh = File("temp.sh");
 final fileTempPng = File("temp.png");
 final List<File> pngFiles = [];
 
-int compressedPngNum = 0;
+int compressedSuccessNum = 0;
+int compressedFailNum = 0;
+int ignoreSizeNum = 0;
 
 main() async {
   Config config = await _readConfig();
@@ -23,11 +25,14 @@ main() async {
   await _listPic(dir, config);
   print('total png: ${pngFiles.length}');
 
-  compressedPngNum = 0;
+  compressedSuccessNum = 0;
+  compressedFailNum = 0;
+  ignoreSizeNum = 0;
   for (final file in pngFiles) {
     await _compressPng(file.path);
   }
-  print('total png: ${pngFiles.length}, compressed png: $compressedPngNum');
+  print('png总数: ${pngFiles.length}, 压缩失败数: $compressedFailNum, ' +
+      '压缩成功数: $compressedSuccessNum,其中压缩差值小于$SIZE_THRESHOLD,忽略数: $ignoreSizeNum ');
   if (await fileTempSh.exists()) {
     fileTempSh.delete();
   }
@@ -107,6 +112,7 @@ Future<void> _compressPng(String srcName) async {
   final result = await Process.start('bash', [fileTempSh.path]);
   int exitCode = await result.exitCode;
   if (exitCode != 0) {
+    compressedFailNum++;
     //.Er 99 .
     // .It Fl Fl skip-if-larger
     // If conversion results in a file larger than the original,
@@ -126,6 +132,7 @@ Future<void> _compressPng(String srcName) async {
       print('exitCode: $exitCode, stdout: $ssOut, stderr: $ssErr');
     }
   } else {
+    compressedSuccessNum++;
     print('compress success');
     await _writeOriginPngIfNeed(srcName);
   }
@@ -139,17 +146,18 @@ Future<void> _writeOriginPngIfNeed(String srcName) async {
     if (await _compareSize(fileTempPng, fileSrc)) {
       print('copy ${fileTempPng.path} -> $srcName');
       await fileTempPng.copy(srcName);
-      compressedPngNum++;
     } else {
-      print('$srcName - ${fileTempPng.path} <$SIZE_THRESHOLD, not copy');
+      ignoreSizeNum++;
     }
   }
 }
 
+///比较文件超出阈值
 Future<bool> _compareSize(File compressed, File origin) async {
   return (await origin.length() - await compressed.length()) > SIZE_THRESHOLD;
 }
 
+///读取配置文件
 Future<Config> _readConfig() async {
   File file = File('config.json');
   String content = await file.readAsString();
