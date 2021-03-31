@@ -3,10 +3,13 @@ import 'dart:io';
 
 import 'config.dart';
 
-final PALETTE_ALPHA = 'PaletteAlpha';
-final MAX_SIZE_BYTE = 10 * 1024;
+//512b
+final SIZE_THRESHOLD = 512;
 
-final fileSh = File("temp.sh");
+//临时sh文件
+final fileTempSh = File("temp.sh");
+//临时png文件
+final fileTempPng = File("temp.png");
 final List<File> pngFiles = [];
 
 int compressedPngNum = 0;
@@ -22,16 +25,14 @@ main() async {
 
   compressedPngNum = 0;
   for (final file in pngFiles) {
-    bool isPaletteAlpha = await _isPaletteAlphaType(file.path);
-    bool isBeyondMaxSize = await _isBeyondMaxSize(file.path);
-
-    if (!isPaletteAlpha || isBeyondMaxSize) {
-      await _compressPng(file.path);
-    }
+    await _compressPng(file.path);
   }
   print('total png: ${pngFiles.length}, compressed png: $compressedPngNum');
-  if (fileSh.existsSync()) {
-    fileSh.delete();
+  if (await fileTempSh.exists()) {
+    fileTempSh.delete();
+  }
+  if (await fileTempPng.exists()) {
+    fileTempPng.delete();
   }
 }
 
@@ -88,20 +89,22 @@ Future<void> _listPic(Directory dirRoot, Config config) async {
 
 ///压缩图片逻辑
 Future<void> _compressPng(String srcName) async {
+  //exitCode: 4, stderr: --ext and --output options can't be used at the same time
   List<String> args = [
     '--skip-if-larger',
     '--speed 1',
     '--nofs',
     '--strip',
     '--force',
-    '--output "$srcName"',
+    // '--ext _new.png',
+    '--output "${fileTempPng.path}"',
     '-- "$srcName"',
   ];
   final shell = "./pngquant ${args.join(' ')}";
   print(shell);
 
-  fileSh.writeAsStringSync(shell);
-  final result = await Process.start('bash', [fileSh.path]);
+  fileTempSh.writeAsStringSync(shell);
+  final result = await Process.start('bash', [fileTempSh.path]);
   int exitCode = await result.exitCode;
   if (exitCode != 0) {
     //.Er 99 .
@@ -123,45 +126,32 @@ Future<void> _compressPng(String srcName) async {
       print('exitCode: $exitCode, stdout: $ssOut, stderr: $ssErr');
     }
   } else {
-    compressedPngNum++;
-    print('success');
+    print('compress success');
+    await _writeOriginPngIfNeed(srcName);
   }
 }
 
-///是否PaletteAlpha类型
-Future<bool> _isPaletteAlphaType(String srcName) async {
-  bool isPaletteAlpha = false;
-  final shell = 'identify -verbose $srcName | grep "Type"';
-  fileSh.writeAsStringSync(shell);
-  final result = await Process.start('bash', [fileSh.path]);
-  //exitCode一直是0
-  final ssOut = await utf8.decodeStream(result.stdout);
-  List<String> outL = ssOut.trim().split(':');
-  if (outL.length > 1) {
-    var type = outL[outL.length - 1].trim();
-    print('$type -- $srcName');
-    if (type.toUpperCase().contains(PALETTE_ALPHA.toUpperCase())) {
-      isPaletteAlpha = true;
+///生成图片写回原文件
+Future<void> _writeOriginPngIfNeed(String srcName) async {
+  File fileSrc = File(srcName);
+  if (await fileSrc.exists() && await fileTempPng.exists()) {
+    //源文件比压缩文件大才替换
+    if (await _compareSize(fileTempPng, fileSrc)) {
+      print('copy ${fileTempPng.path} -> $srcName');
+      await fileTempPng.copy(srcName);
+      compressedPngNum++;
+    } else {
+      print('$srcName - ${fileTempPng.path} <$SIZE_THRESHOLD, not copy');
     }
   }
-
-  final ssErr = await utf8.decodeStream(result.stderr);
-  List<String> errL = ssErr.trim().split(':');
-  if (errL.length > 1) {
-    print('err ------- ' + errL[errL.length - 1].trim());
-  }
-
-  return isPaletteAlpha;
 }
 
-Future<bool> _isBeyondMaxSize(String srcName) async {
-  File file = new File(srcName);
-  int length = await file.length();
-  return length > MAX_SIZE_BYTE;
+Future<bool> _compareSize(File compressed, File origin) async {
+  return (await origin.length() - await compressed.length()) > SIZE_THRESHOLD;
 }
 
 Future<Config> _readConfig() async {
-  File file = new File('config.json');
+  File file = File('config.json');
   String content = await file.readAsString();
   Config config = Config([], []);
   try {
