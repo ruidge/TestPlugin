@@ -96,6 +96,7 @@ Future<void> _listPic(Directory dirRoot, Config config) async {
 Future<void> _compressPng(String srcName) async {
   //exitCode: 4, stderr: --ext and --output options can't be used at the same time
   List<String> args = [
+    '--quality 70-100',
     '--skip-if-larger',
     '--speed 1',
     '--nofs',
